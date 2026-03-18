@@ -5,6 +5,7 @@ struct SettingsView: View {
     @EnvironmentObject var appViewModel: AppViewModel
     @EnvironmentObject var settingsViewModel: SettingsViewModel
     @State private var showLogoutAlert = false
+    @State private var showDeleteAccountAlert = false
     @State private var showImagePicker = false
     @State private var profileImage: UIImage? = nil
     @State private var editingName = ""
@@ -304,6 +305,14 @@ struct SettingsView: View {
                     }
                     .foregroundColor(AppColors.warning)
                 }
+                Button(action: { showDeleteAccountAlert = true }) {
+                    HStack {
+                        Image(systemName: "trash")
+                        Text("Delete Account")
+                        Spacer()
+                    }
+                    .foregroundColor(.red)
+                }
             }
         }
         .listStyle(InsetGroupedListStyle())
@@ -317,6 +326,14 @@ struct SettingsView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Are you sure you want to sign out?")
+        }
+        .alert("Delete Account", isPresented: $showDeleteAccountAlert) {
+            Button("Delete", role: .destructive) {
+                appViewModel.deleteAccount()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will permanently delete your account and all data. This action cannot be undone.")
         }
         .alert("Notifications Disabled", isPresented: $showNotificationDeniedAlert) {
             Button("Open Settings") {

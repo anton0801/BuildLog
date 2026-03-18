@@ -322,6 +322,31 @@ class AppViewModel: ObservableObject {
         clearUserSession()
     }
 
+    func deleteAccount() {
+        // Delete all photo files from disk
+        for photo in photos where !photo.imagePath.isEmpty {
+            try? FileManager.default.removeItem(at: URL(fileURLWithPath: photo.imagePath))
+        }
+        // Delete avatar
+        if let avatarPath = currentUser?.avatarPath {
+            try? FileManager.default.removeItem(at: URL(fileURLWithPath: avatarPath))
+        }
+        // Clear all data files
+        let keys = [projectsKey, photosKey, materialsKey, expensesKey, contractorsKey, timelineKey, userKey]
+        for key in keys {
+            try? FileManager.default.removeItem(at: documentsURL(for: key))
+        }
+        // Reset in-memory state
+        projects = []
+        photos = []
+        materials = []
+        expenses = []
+        contractors = []
+        timelineEvents = []
+        currentUser = nil
+        isAuthenticated = false
+    }
+
     func updateUser(_ user: User) {
         currentUser = user
         saveUser()

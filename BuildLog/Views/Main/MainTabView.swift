@@ -45,7 +45,7 @@ struct MainTabView: View {
     @State private var tabAnimating = false
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        VStack(spacing: 0) {
             // Content
             ZStack {
                 switch selectedTab {
