@@ -59,7 +59,7 @@ struct SplashView: View {
 
                 // App Name
                 VStack(spacing: 8) {
-                    Text("RenovaTrack")
+                    Text("Build Log")
                         .font(.system(size: 38, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                         .opacity(titleOpacity)

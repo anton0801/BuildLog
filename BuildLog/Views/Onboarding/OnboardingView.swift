@@ -10,7 +10,7 @@ struct OnboardingView: View {
     let pages: [OnboardingPage] = [
         OnboardingPage(
             title: "Plan Your Renovation",
-            subtitle: "Create projects, add rooms, and organize every step of your renovation from start to finish.",
+            subtitle: "Create projects, add rooms, and organize every step of your\nrenovation from start to finish.",
             illustration: "OnboardingIllustration1",
             accentColor: Color(hex: "#2F80ED")
         ),
@@ -22,7 +22,7 @@ struct OnboardingView: View {
         ),
         OnboardingPage(
             title: "Control Your Budget",
-            subtitle: "Track expenses by category, monitor your budget, and generate detailed reports.",
+            subtitle: "Track expenses by category, monitor your\nbudget, and generate detailed reports.",
             illustration: "OnboardingIllustration3",
             accentColor: Color(hex: "#FF8A00")
         )
