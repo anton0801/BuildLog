@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContractorsView: View {
     @EnvironmentObject var appViewModel: AppViewModel
+    @EnvironmentObject var settingsViewModel: SettingsViewModel
     @State private var showAddContractor = false
     @State private var searchText = ""
 
@@ -35,10 +36,17 @@ struct ContractorsView: View {
                 } else {
                     List {
                         ForEach(filteredContractors) { contractor in
-                            ContractorCard(contractor: contractor)
-                                .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 6, trailing: 20))
-                                .listRowBackground(Color.clear)
-                                .listRowSeparator(.hidden)
+                            NavigationLink(destination:
+                                ContractorDetailView(contractor: contractor)
+                                    .environmentObject(appViewModel)
+                                    .environmentObject(settingsViewModel)
+                            ) {
+                                ContractorCard(contractor: contractor)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 6, trailing: 20))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                         }
                         .onDelete { offsets in
                             appViewModel.deleteContractors(at: offsets)

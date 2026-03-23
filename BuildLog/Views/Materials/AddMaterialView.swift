@@ -7,6 +7,9 @@ struct AddMaterialView: View {
 
     var preselectedRoomID: UUID? = nil
     var preselectedProjectID: UUID? = nil
+    var prefillName: String? = nil
+    var prefillQuantity: Double? = nil
+    var prefillUnit: String? = nil
 
     @State private var name = ""
     @State private var category: MaterialCategory = .other
@@ -258,6 +261,9 @@ struct AddMaterialView: View {
         .onAppear {
             selectedRoomID = preselectedRoomID
             selectedProjectID = preselectedProjectID
+            if let n = prefillName { name = n }
+            if let q = prefillQuantity { quantity = String(format: "%.2f", q) }
+            if let u = prefillUnit { unit = u }
         }
     }
 

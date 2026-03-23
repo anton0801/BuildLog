@@ -300,6 +300,46 @@ class AppViewModel: ObservableObject {
         toDelete.forEach { deleteContractor($0) }
     }
 
+    // MARK: - Job Entry CRUD
+    func addJobEntry(_ entry: JobEntry, toContractor contractorID: UUID) {
+        guard let idx = contractors.firstIndex(where: { $0.id == contractorID }) else { return }
+        contractors[idx].jobEntries.insert(entry, at: 0)
+        saveContractors()
+    }
+
+    func updateJobEntry(_ entry: JobEntry, inContractor contractorID: UUID) {
+        guard let cIdx = contractors.firstIndex(where: { $0.id == contractorID }) else { return }
+        if let eIdx = contractors[cIdx].jobEntries.firstIndex(where: { $0.id == entry.id }) {
+            contractors[cIdx].jobEntries[eIdx] = entry
+            saveContractors()
+        }
+    }
+
+    func deleteJobEntry(_ entry: JobEntry, fromContractor contractorID: UUID) {
+        guard let cIdx = contractors.firstIndex(where: { $0.id == contractorID }) else { return }
+        contractors[cIdx].jobEntries.removeAll { $0.id == entry.id }
+        saveContractors()
+    }
+
+    // MARK: - Calculation History
+    private let calcHistoryKey = "calc_history_data"
+
+    func addCalculationRecord(_ record: CalculationRecord) {
+        var history = calculationHistory()
+        history.insert(record, at: 0)
+        if history.count > 10 { history = Array(history.prefix(10)) }
+        if let data = try? JSONEncoder().encode(history) {
+            UserDefaults.standard.set(data, forKey: calcHistoryKey)
+        }
+    }
+
+    func calculationHistory() -> [CalculationRecord] {
+        guard let data = UserDefaults.standard.data(forKey: calcHistoryKey),
+              let records = try? JSONDecoder().decode([CalculationRecord].self, from: data)
+        else { return [] }
+        return records
+    }
+
     // MARK: - Timeline
     func addTimelineEvent(_ event: TimelineEvent) {
         timelineEvents.insert(event, at: 0)
@@ -423,9 +463,9 @@ class AppViewModel: ObservableObject {
         return projects.first { $0.id == pid }?.rooms.first { $0.id == rid }
     }
 
-    func allRooms() -> [(room: Room, project: Project)] {
+    func allRooms() -> [RoomProjectPair] {
         projects.flatMap { project in
-            project.rooms.map { (room: $0, project: project) }
+            project.rooms.map { RoomProjectPair(room: $0, project: project) }
         }
     }
 

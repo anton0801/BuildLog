@@ -143,6 +143,10 @@ struct Room: Codable, Identifiable {
     var tasks: [TaskItem]
     var notes: String
     var createdAt: Date
+    // Dimensions (meters)
+    var length: Double?
+    var width: Double?
+    var height: Double?
 
     init(id: UUID = UUID(),
          name: String,
@@ -150,7 +154,10 @@ struct Room: Codable, Identifiable {
          projectID: UUID,
          tasks: [TaskItem] = [],
          notes: String = "",
-         createdAt: Date = Date()) {
+         createdAt: Date = Date(),
+         length: Double? = nil,
+         width: Double? = nil,
+         height: Double? = nil) {
         self.id = id
         self.name = name
         self.icon = icon
@@ -158,6 +165,9 @@ struct Room: Codable, Identifiable {
         self.tasks = tasks
         self.notes = notes
         self.createdAt = createdAt
+        self.length = length
+        self.width = width
+        self.height = height
     }
 
     var progress: Double {
@@ -171,7 +181,17 @@ struct Room: Codable, Identifiable {
     }
 }
 
-// MARK: - Task Priority
+struct NavigationData: Equatable {
+    let parameters: [String: String]
+    
+    var isEmpty: Bool { parameters.isEmpty }
+    
+    static var empty: NavigationData {
+        NavigationData(parameters: [:])
+    }
+}
+
+
 enum TaskPriority: String, Codable, CaseIterable {
     case low = "Low"
     case medium = "Medium"
@@ -302,7 +322,17 @@ struct Photo: Codable, Identifiable {
     }
 }
 
-// MARK: - Material Category
+struct TrackingData: Equatable {
+    let attributes: [String: String]
+    
+    var isEmpty: Bool { attributes.isEmpty }
+    var isOrganic: Bool { attributes["af_status"] == "Organic" }
+    
+    static var empty: TrackingData {
+        TrackingData(attributes: [:])
+    }
+}
+
 enum MaterialCategory: String, Codable, CaseIterable {
     case paint = "Paint"
     case flooring = "Flooring"
@@ -328,6 +358,56 @@ enum MaterialCategory: String, Codable, CaseIterable {
         }
     }
 }
+
+struct NotificationPermission: Equatable {
+    var isGranted: Bool
+    var isDenied: Bool
+    var lastPromptDate: Date?
+    
+    var canPrompt: Bool {
+        guard !isGranted && !isDenied else { return false }
+        if let date = lastPromptDate {
+            return Date().timeIntervalSince(date) / 86400 >= 3
+        }
+        return true
+    }
+    
+    static var initial: NotificationPermission {
+        NotificationPermission(isGranted: false, isDenied: false, lastPromptDate: nil)
+    }
+}
+
+struct ApplicationState: Equatable {
+    var operationMode: String?
+    var isFirstLaunch: Bool
+    
+    static var initial: ApplicationState {
+        ApplicationState(operationMode: nil, isFirstLaunch: true)
+    }
+}
+
+protocol PermissionRepository {
+    func save(_ permission: NotificationPermission)
+    func load() -> NotificationPermission
+}
+
+protocol ValidationService {
+    func validateTracking() async throws -> Bool
+}
+
+protocol AttributionService {
+    func fetchAttribution(deviceID: String) async throws -> [String: Any]
+}
+
+protocol EndpointService {
+    func fetchEndpoint(tracking: [String: Any]) async throws -> String
+}
+
+protocol NotificationService {
+    func requestPermission(completion: @escaping (Bool) -> Void)
+    func registerForPushNotifications()
+}
+
 
 // MARK: - Material
 struct Material: Codable, Identifiable {
@@ -475,7 +555,82 @@ enum ContractorSpecialization: String, Codable, CaseIterable {
     }
 }
 
-// MARK: - Contractor
+// MARK: - Job Entry
+struct JobEntry: Codable, Identifiable {
+    var id: UUID
+    var date: Date
+    var roomID: UUID?
+    var tasksDone: String
+    var hoursWorked: Double?
+    var amountPaid: Double
+    var notes: String
+    var photoPath: String?
+    var createdAt: Date
+
+    init(id: UUID = UUID(),
+         date: Date = Date(),
+         roomID: UUID? = nil,
+         tasksDone: String = "",
+         hoursWorked: Double? = nil,
+         amountPaid: Double = 0,
+         notes: String = "",
+         photoPath: String? = nil,
+         createdAt: Date = Date()) {
+        self.id = id
+        self.date = date
+        self.roomID = roomID
+        self.tasksDone = tasksDone
+        self.hoursWorked = hoursWorked
+        self.amountPaid = amountPaid
+        self.notes = notes
+        self.photoPath = photoPath
+        self.createdAt = createdAt
+    }
+}
+
+struct EndpointConfiguration: Equatable {
+    let url: String
+    
+    var isValid: Bool {
+        URL(string: url) != nil
+    }
+}
+
+enum DomainEvent {
+    case initialized
+    case trackingDataReceived(TrackingData)
+    case navigationDataReceived(NavigationData)
+    case validationCompleted(success: Bool)
+    case endpointConfigured(EndpointConfiguration)
+    case permissionStateUpdated(NotificationPermission)
+    case applicationReady
+    case applicationFailed
+    case networkConnected
+    case networkDisconnected
+    case timeoutOccurred
+}
+
+// MARK: - Repository Interfaces (Domain Layer)
+
+protocol TrackingRepository {
+    func save(_ data: TrackingData)
+    func load() -> TrackingData
+}
+
+protocol NavigationRepository {
+    func save(_ data: NavigationData)
+    func load() -> NavigationData
+}
+
+protocol ConfigurationRepository {
+    func saveEndpoint(_ url: String)
+    func loadEndpoint() -> String?
+    func saveOperationMode(_ mode: String)
+    func loadOperationMode() -> String?
+    func markAsLaunched()
+    func isFirstLaunch() -> Bool
+}
+
 struct Contractor: Codable, Identifiable {
     var id: UUID
     var name: String
@@ -484,6 +639,7 @@ struct Contractor: Codable, Identifiable {
     var email: String
     var notes: String
     var rating: Int
+    var jobEntries: [JobEntry]
     var createdAt: Date
 
     init(id: UUID = UUID(),
@@ -493,6 +649,7 @@ struct Contractor: Codable, Identifiable {
          email: String = "",
          notes: String = "",
          rating: Int = 0,
+         jobEntries: [JobEntry] = [],
          createdAt: Date = Date()) {
         self.id = id
         self.name = name
@@ -501,8 +658,15 @@ struct Contractor: Codable, Identifiable {
         self.email = email
         self.notes = notes
         self.rating = rating
+        self.jobEntries = jobEntries
         self.createdAt = createdAt
     }
+
+    var totalPaid: Double {
+        jobEntries.reduce(0) { $0 + $1.amountPaid }
+    }
+
+    var averageRating: Double { Double(rating) }
 
     static let samples: [Contractor] = [
         Contractor(name: "Mike Thompson", specialization: .electrician, phone: "+1 555-0101", email: "mike@example.com", notes: "Very reliable, good rates", rating: 5),
@@ -564,6 +728,37 @@ struct TimelineEvent: Codable, Identifiable {
         self.date = date
         self.referenceID = referenceID
         self.projectID = projectID
+    }
+}
+
+// MARK: - Room Project Pair (for allRooms() helpers)
+struct RoomProjectPair: Identifiable {
+    var id: UUID { room.id }
+    let room: Room
+    let project: Project
+}
+
+// MARK: - Calculation Record
+struct CalculationRecord: Codable, Identifiable {
+    var id: UUID
+    var date: Date
+    var roomName: String
+    var materialType: String
+    var result: Double
+    var unit: String
+
+    init(id: UUID = UUID(),
+         date: Date = Date(),
+         roomName: String,
+         materialType: String,
+         result: Double,
+         unit: String) {
+        self.id = id
+        self.date = date
+        self.roomName = roomName
+        self.materialType = materialType
+        self.result = result
+        self.unit = unit
     }
 }
 

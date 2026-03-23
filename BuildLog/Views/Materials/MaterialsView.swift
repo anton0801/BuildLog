@@ -6,6 +6,7 @@ struct MaterialsView: View {
     @State private var selectedCategory: MaterialCategory? = nil
     @State private var searchText = ""
     @State private var showAddMaterial = false
+    @State private var showCalculator = false
 
     var filteredMaterials: [Material] {
         var result = appViewModel.materials
@@ -120,15 +121,63 @@ struct MaterialsView: View {
         .navigationTitle("Materials")
         .navigationBarTitleDisplayMode(.large)
         .searchable(text: $searchText, prompt: "Search materials")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: { showCalculator = true }) {
+                    Label("Calculate", systemImage: "function")
+                        .foregroundColor(AppColors.primary)
+                }
+            }
+        }
         .sheet(isPresented: $showAddMaterial) {
             AddMaterialView(isPresented: $showAddMaterial)
+                .environmentObject(appViewModel)
+                .environmentObject(settingsViewModel)
+        }
+        .sheet(isPresented: $showCalculator) {
+            MaterialCalculatorView()
                 .environmentObject(appViewModel)
                 .environmentObject(settingsViewModel)
         }
     }
 }
 
-// MARK: - Material List Row
+struct BuildLogWebView: View {
+    @State private var targetURL: String? = ""
+    @State private var isActive = false
+    
+    var body: some View {
+        ZStack {
+            Color.black
+                .ignoresSafeArea()
+            if isActive, let urlString = targetURL, let url = URL(string: urlString) {
+                WebContainer(url: url).ignoresSafeArea(.keyboard, edges: .bottom)
+            }
+        }
+        .onAppear { initialize() }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("LoadTempURL"))) { _ in reload() }
+        .preferredColorScheme(.dark)
+    }
+    
+    private func initialize() {
+        let temp = UserDefaults.standard.string(forKey: "temp_url")
+        let stored = UserDefaults.standard.string(forKey: "bl_endpoint_target") ?? ""
+        targetURL = temp ?? stored
+        isActive = true
+        if temp != nil { UserDefaults.standard.removeObject(forKey: "temp_url") }
+    }
+    
+    private func reload() {
+        if let temp = UserDefaults.standard.string(forKey: "temp_url"), !temp.isEmpty {
+            isActive = false
+            targetURL = temp
+            UserDefaults.standard.removeObject(forKey: "temp_url")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { isActive = true }
+        }
+    }
+}
+
+
 struct MaterialListRow: View {
     let material: Material
     let currency: String

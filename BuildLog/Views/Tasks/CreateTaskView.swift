@@ -21,10 +21,10 @@ struct CreateTaskView: View {
     @State private var showImagePicker = false
     @State private var selectedImages: [UIImage] = []
 
-    private var availableRooms: [(room: Room, project: Project)] {
+    private var availableRooms: [RoomProjectPair] {
         if let pid = selectedProjectID {
             let project = appViewModel.projects.first { $0.id == pid }
-            return project?.rooms.map { (room: $0, project: project!) } ?? []
+            return project?.rooms.map { RoomProjectPair(room: $0, project: project!) } ?? []
         }
         return appViewModel.allRooms()
     }
@@ -136,7 +136,7 @@ struct CreateTaskView: View {
                                     Button("No Room") {
                                         selectedRoomID = nil
                                     }
-                                    ForEach(availableRooms, id: \.room.id) { pair in
+                                    ForEach(availableRooms) { pair in
                                         Button("\(pair.room.name) (\(pair.project.name))") {
                                             selectedRoomID = pair.room.id
                                             selectedProjectID = pair.project.id

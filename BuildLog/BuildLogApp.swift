@@ -5,9 +5,11 @@ struct BuildLogApp: App {
     @StateObject private var appViewModel = AppViewModel()
     @StateObject private var settingsViewModel = SettingsViewModel()
 
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    
     var body: some Scene {
         WindowGroup {
-            RootView()
+            SplashView()
                 .environmentObject(appViewModel)
                 .environmentObject(settingsViewModel)
                 .preferredColorScheme(settingsViewModel.colorScheme)
@@ -15,7 +17,6 @@ struct BuildLogApp: App {
     }
 }
 
-// MARK: - Root View (handles splash, onboarding, auth, main flow)
 struct RootView: View {
     @EnvironmentObject var appViewModel: AppViewModel
     @EnvironmentObject var settingsViewModel: SettingsViewModel
@@ -25,23 +26,9 @@ struct RootView: View {
 
     var body: some View {
         ZStack {
-            if showSplash {
-                SplashView {
-                    withAnimation(.easeOut(duration: 0.4)) {
-                        splashOpacity = 0
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                        showSplash = false
-                    }
-                }
-                .opacity(splashOpacity)
-                .zIndex(1)
-            } else {
-                mainContent
-                    .transition(.opacity)
-            }
+            mainContent
+                .transition(.opacity)
         }
-        .animation(.easeInOut(duration: 0.3), value: showSplash)
     }
 
     @ViewBuilder
@@ -71,4 +58,9 @@ struct RootView: View {
                 ))
         }
     }
+}
+
+struct BuildLogConfig {
+    static let appID = "6760728329"
+    static let devKey = "3NAmXPMJnVwdHjUmTyYhAH"
 }

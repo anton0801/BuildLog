@@ -5,6 +5,9 @@ struct PhotosView: View {
     @State private var showAddPhoto = false
     @State private var selectedPhoto: Photo? = nil
     @State private var searchText = ""
+    @State private var showCompare = false
+    @State private var compareBeforePhoto: Photo? = nil
+    @State private var compareAfterPhoto: Photo? = nil
 
     let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
 
@@ -47,8 +50,20 @@ struct PhotosView: View {
                                 LazyVGrid(columns: columns, spacing: 3) {
                                     ForEach(filteredPhotos) { photo in
                                         PhotoCell(photo: photo)
-                                            .onTapGesture {
-                                                selectedPhoto = photo
+                                            .onTapGesture { selectedPhoto = photo }
+                                            .contextMenu {
+                                                Button(action: {
+                                                    compareBeforePhoto = photo
+                                                    showCompare = true
+                                                }) {
+                                                    Label("Use as Before", systemImage: "arrow.left.square")
+                                                }
+                                                Button(action: {
+                                                    compareAfterPhoto = photo
+                                                    showCompare = true
+                                                }) {
+                                                    Label("Use as After", systemImage: "arrow.right.square")
+                                                }
                                             }
                                     }
                                 }
@@ -68,6 +83,14 @@ struct PhotosView: View {
         .navigationTitle("Photos")
         .navigationBarTitleDisplayMode(.large)
         .searchable(text: $searchText, prompt: "Search photos")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: { showCompare = true }) {
+                    Label("Compare", systemImage: "square.split.2x1")
+                        .foregroundColor(AppColors.primary)
+                }
+            }
+        }
         .sheet(isPresented: $showAddPhoto) {
             AddPhotoView(isPresented: $showAddPhoto)
                 .environmentObject(appViewModel)
@@ -75,6 +98,16 @@ struct PhotosView: View {
         .sheet(item: $selectedPhoto) { photo in
             PhotoDetailView(photo: photo)
                 .environmentObject(appViewModel)
+        }
+        .sheet(isPresented: $showCompare, onDismiss: {
+            compareBeforePhoto = nil
+            compareAfterPhoto = nil
+        }) {
+            ComparePickerView(
+                initialBeforePhoto: compareBeforePhoto,
+                initialAfterPhoto: compareAfterPhoto
+            )
+            .environmentObject(appViewModel)
         }
     }
 }

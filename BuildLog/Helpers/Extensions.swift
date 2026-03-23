@@ -1,7 +1,43 @@
 import SwiftUI
 import Foundation
 
-// MARK: - Color from Hex
+final class UserDefaultsConfigurationRepository: ConfigurationRepository {
+    private let storage = UserDefaults(suiteName: "group.buildlog.vault")!
+    private let cache = UserDefaults.standard
+    
+    private enum Key {
+        static let endpoint = "bl_endpoint_target"
+        static let mode = "bl_mode_active"
+        static let firstLaunch = "bl_first_launch_flag"
+    }
+    
+    func saveEndpoint(_ url: String) {
+        storage.set(url, forKey: Key.endpoint)
+        cache.set(url, forKey: Key.endpoint)
+    }
+    
+    func loadEndpoint() -> String? {
+        storage.string(forKey: Key.endpoint)
+    }
+    
+    func saveOperationMode(_ mode: String) {
+        storage.set(mode, forKey: Key.mode)
+    }
+    
+    func loadOperationMode() -> String? {
+        storage.string(forKey: Key.mode)
+    }
+    
+    func markAsLaunched() {
+        storage.set(true, forKey: Key.firstLaunch)
+    }
+    
+    func isFirstLaunch() -> Bool {
+        !storage.bool(forKey: Key.firstLaunch)
+    }
+}
+
+
 extension Color {
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -41,6 +77,38 @@ extension Color {
                       lroundf(b * 255))
     }
 }
+
+final class UserDefaultsPermissionRepository: PermissionRepository {
+    private let storage = UserDefaults(suiteName: "group.buildlog.vault")!
+    
+    private enum Key {
+        static let granted = "bl_perm_granted"
+        static let denied = "bl_perm_denied"
+        static let date = "bl_perm_date"
+    }
+    
+    func save(_ permission: NotificationPermission) {
+        storage.set(permission.isGranted, forKey: Key.granted)
+        storage.set(permission.isDenied, forKey: Key.denied)
+        if let date = permission.lastPromptDate {
+            storage.set(date.timeIntervalSince1970 * 1000, forKey: Key.date)
+        }
+    }
+    
+    func load() -> NotificationPermission {
+        let granted = storage.bool(forKey: Key.granted)
+        let denied = storage.bool(forKey: Key.denied)
+        let ts = storage.double(forKey: Key.date)
+        let date = ts > 0 ? Date(timeIntervalSince1970: ts / 1000) : nil
+        
+        return NotificationPermission(
+            isGranted: granted,
+            isDenied: denied,
+            lastPromptDate: date
+        )
+    }
+}
+
 
 // MARK: - Date Extensions
 extension Date {
@@ -203,5 +271,94 @@ extension Binding where Value == String {
             }
         }
         return self
+    }
+}
+
+final class UserDefaultsTrackingRepository: TrackingRepository {
+    private let storage = UserDefaults(suiteName: "group.buildlog.vault")!
+    private let key = "bl_tracking_payload"
+    private var cache: TrackingData?
+    
+    func save(_ data: TrackingData) {
+        if let json = toJSON(data.attributes) {
+            storage.set(json, forKey: key)
+            cache = data
+        }
+    }
+    
+    func load() -> TrackingData {
+        if let cached = cache {
+            return cached
+        }
+        
+        guard let json = storage.string(forKey: key),
+              let attributes = fromJSON(json) else {
+            return .empty
+        }
+        
+        let data = TrackingData(attributes: attributes)
+        cache = data
+        return data
+    }
+    
+    private func toJSON(_ dict: [String: String]) -> String? {
+        guard let data = try? JSONSerialization.data(withJSONObject: dict.mapValues { $0 as Any }),
+              let string = String(data: data, encoding: .utf8) else { return nil }
+        return string
+    }
+    
+    private func fromJSON(_ string: String) -> [String: String]? {
+        guard let data = string.data(using: .utf8),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        return dict.mapValues { "\($0)" }
+    }
+}
+
+final class UserDefaultsNavigationRepository: NavigationRepository {
+    private let storage = UserDefaults(suiteName: "group.buildlog.vault")!
+    private let key = "bl_navigation_payload"
+    
+    func save(_ data: NavigationData) {
+        if let json = toJSON(data.parameters) {
+            let encoded = encode(json)
+            storage.set(encoded, forKey: key)
+        }
+    }
+    
+    func load() -> NavigationData {
+        guard let encoded = storage.string(forKey: key),
+              let json = decode(encoded),
+              let parameters = fromJSON(json) else {
+            return .empty
+        }
+        
+        return NavigationData(parameters: parameters)
+    }
+    
+    private func toJSON(_ dict: [String: String]) -> String? {
+        guard let data = try? JSONSerialization.data(withJSONObject: dict.mapValues { $0 as Any }),
+              let string = String(data: data, encoding: .utf8) else { return nil }
+        return string
+    }
+    
+    private func fromJSON(_ string: String) -> [String: String]? {
+        guard let data = string.data(using: .utf8),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        return dict.mapValues { "\($0)" }
+    }
+    
+    private func encode(_ string: String) -> String {
+        Data(string.utf8).base64EncodedString()
+            .replacingOccurrences(of: "=", with: "(")
+            .replacingOccurrences(of: "+", with: ")")
+    }
+    
+    private func decode(_ string: String) -> String? {
+        let base64 = string
+            .replacingOccurrences(of: "(", with: "=")
+            .replacingOccurrences(of: ")", with: "+")
+        guard let data = Data(base64Encoded: base64),
+              let str = String(data: data, encoding: .utf8) else { return nil }
+        return str
     }
 }

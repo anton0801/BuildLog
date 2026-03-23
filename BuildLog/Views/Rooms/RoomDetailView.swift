@@ -11,6 +11,8 @@ struct RoomDetailView: View {
     @State private var showAddTask = false
     @State private var showAddMaterial = false
     @State private var showAddPhoto = false
+    @State private var showCompare = false
+    @State private var showCalculator = false
 
     private var liveRoom: Room {
         appViewModel.projects
@@ -93,6 +95,34 @@ struct RoomDetailView: View {
         .background(AppColors.background.ignoresSafeArea())
         .navigationTitle(liveRoom.name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Group {
+                    if selectedTab == 2 {
+                        Button(action: { showCompare = true }) {
+                            Image(systemName: "square.split.2x1")
+                                .foregroundColor(AppColors.primary)
+                        }
+                    } else if selectedTab == 1 {
+                        Button(action: { showCalculator = true }) {
+                            Image(systemName: "function")
+                                .foregroundColor(AppColors.primary)
+                        }
+                    } else {
+                        EmptyView()
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showCompare) {
+            ComparePickerView(preselectedRoomID: room.id)
+                .environmentObject(appViewModel)
+        }
+        .sheet(isPresented: $showCalculator) {
+            MaterialCalculatorView(preselectedRoom: liveRoom, project: project)
+                .environmentObject(appViewModel)
+                .environmentObject(settingsViewModel)
+        }
         .sheet(isPresented: $showAddTask) {
             CreateTaskView(isPresented: $showAddTask, preselectedRoomID: room.id, preselectedProjectID: project.id)
                 .environmentObject(appViewModel)
@@ -133,6 +163,25 @@ struct RoomDetailView: View {
     // MARK: - Materials Content
     @ViewBuilder
     private var materialsContent: some View {
+        // Calculate quantity link
+        Button(action: { showCalculator = true }) {
+            HStack(spacing: 8) {
+                Image(systemName: "function")
+                    .font(.system(size: 13))
+                    .foregroundColor(AppColors.primary)
+                Text("Calculate needed quantity")
+                    .font(AppFonts.subheadline())
+                    .foregroundColor(AppColors.primary)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11))
+                    .foregroundColor(AppColors.secondaryText)
+            }
+            .padding()
+            .background(AppColors.primary.opacity(0.06))
+            .cornerRadius(12)
+        }
+
         if roomMaterials.isEmpty {
             EmptyStateView(
                 icon: "shippingbox",
